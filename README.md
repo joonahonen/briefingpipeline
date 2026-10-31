@@ -1,6 +1,6 @@
 # Briefing Pipeline
 
-A Python pipeline that builds a daily AI-generated morning briefing and delivers it to Telegram. It combines weather (Oulu), upcoming calendar events, world news, and technology news before using Google Gemini API to format the final briefing for a mobile screen.
+A Python pipeline that builds a daily AI-generated morning briefing and delivers it to a Notion database. It combines weather (Oulu), world news, and technology news before using Google Gemini API to format the final briefing for a mobile screen. The delivery was formerly done through a Telegram bot, code has been modified to support Notion.
 
 ## What it does
 
@@ -15,13 +15,11 @@ The pipeline:
    - The top technology-news article.
 6. Sends the formatted briefing to a Telegram chat.
 
-If a Telegram bot token is not available, the generated briefing is printed to the console instead.
-
 ## Project structure
 
 ```text
 .
-├── main.py                         # Data collection, AI generation, and Telegram delivery
+├── main.py                         # Data collection, AI generation, and Notion delivery
 ├── requirements.txt                # Python dependencies
 └── .github/
     └── workflows/
@@ -32,8 +30,8 @@ If a Telegram bot token is not available, the generated briefing is printed to t
 
 - Python 3.11 or newer
 - A Google Gemini API key
-- A Telegram bot token
-- A Telegram chat ID
+- A Notion API token
+- A Database ID
 - An optional publicly accessible calendar ICS URL
 
 ## Configuration
@@ -43,8 +41,8 @@ The application reads configuration from environment variables:
 | Variable | Required | Description |
 |---|---:|---|
 | `GEMINI_API_KEY` | Yes | API key used to access Google Gemini |
-| `TELEGRAM_BOT_TOKEN` | Yes for Telegram delivery | Token for the Telegram bot |
-| `TELEGRAM_CHAT_ID` | Yes for Telegram delivery | Telegram chat that receives the briefing |
+| `NOTION_TOKEN` | Yes for Notion delivery | Token for the Notion API |
+| `NOTION_DATABASE_ID` | Yes for Notion delivery | Notion database that receives the briefing |
 | `CALENDAR_ICS_URL` | No | URL of an ICS calendar feed |
 
 The weather location is currently fixed in `main.py` to the coordinates of Oulu, Finland:

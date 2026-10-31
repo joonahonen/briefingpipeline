@@ -3,6 +3,7 @@ import requests
 import feedparser
 from ics import Calendar
 from google import genai
+from datetime import datetime
 import arrow
 
 # ==========================================
@@ -10,12 +11,12 @@ import arrow
 # ==========================================
 # The script will now pull these securely from GitHub Actions
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+NOTION_TOKEN = os.environ.get("NOTION_TOKEN")
+NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID")
 CALENDAR_ICS_URL = os.environ.get("CALENDAR_ICS_URL")
 
 # Quick sanity check
-if not all([GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, CALENDAR_ICS_URL]):
+if not all([GEMINI_API_KEY, NOTION_TOKEN, NOTION_DATABASE_ID, CALENDAR_ICS_URL]):
     print("Warning: One or more environment variables are missing.")
 
 # Default coordinates for weather
@@ -99,23 +100,23 @@ def generate_ai_briefing(weather, agenda, news):
     client = genai.Client(api_key=GEMINI_API_KEY)
     
     prompt = f"""
-    You are my personal AI assistant sending a morning update to my phone on Telegram.
+    You are my personal AI assistant writing a morning update to my Notion workspace.
     
     RAW DATA:
     - Weather Today: {weather}
     - Upcoming Agenda: {agenda}
     - News items: {news}
     
-    ORMATTING RULES FOR TELEGRAM:
-    1. Do NOT use Markdown (no asterisks **, no markdown headers ###, no divider lines ---).
-    2. Use Telegram HTML tags: <b>bold text</b> for emphasis and <a href="URL">Title</a> for links.
-    3. Keep it visually clean and compact for a mobile screen using emoji section headers (e.g., 🌤️ <b>Weather</b>, 📅 <b>Agenda</b>, 🌍 <b>Top News</b>).
-    4. For the news section, provide EXACTLY 3 items in this order:
-       - Item 1: The most important story from [CATEGORY: WORLD NEWS].
-       - Item 2: The second most important story from [CATEGORY: WORLD NEWS].
-       - Item 3: The top story from [CATEGORY: TECH NEWS] (prefix the headline with a tech tag or emoji, e.g., 💻 [Tech]).
-       For each item, format the title as a clickable link (<a href="URL">Title</a>), followed by a 1-sentence summary of why it matters.
-    5. Keep the tone warm, clear, and direct.
+    FORMATTING RULES FOR NOTION:
+    1. Do NOT use any Markdown formatting (no asterisks **, no pound signs ###, no brackets).
+    2. Do NOT use HTML tags. 
+    3. Use emojis as section headers (e.g., 🌤️ Weather, 📅 Agenda, 🌍 Top News).
+    4. For the news section, provide EXACTLY 3 items:
+       - The most important WORLD NEWS story.
+       - The second most important WORLD NEWS story.
+       - The top TECH NEWS story.
+    5. Format each news item as: "Title - URL - 1 sentence summary."
+    6. Ensure every distinct point or paragraph is on a new line.
     """
     
     try:
@@ -131,31 +132,62 @@ def generate_ai_briefing(weather, agenda, news):
 # ==========================================
 # 4. DELIVERY
 # ==========================================
-def send_telegram_message(message):
-    print("Sending to Telegram...")
-    if not TELEGRAM_BOT_TOKEN:
+def create_notion_page(message):
+    print("Sending to Notion...")
+    if not NOTION_TOKEN or not NOTION_DATABASE_ID:
         print(message)
         return
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    url = "https://api.notion.com/v1/pages"
+    
+    headers = {
+        "Authorization": f"Bearer {NOTION_TOKEN}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2026-03-11"
+    }
+
+    # Split the AI output by newlines and create a paragraph block for each line
+    # This prevents hitting Notion's character limits for single blocks
+    blocks = []
+    for line in message.split('\n'):
+        if line.strip():
+            blocks.append({
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {
+                    "rich_text": [{"type": "text", "text": {"content": line.strip()}}]
+                }
+            })
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    
     payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": True
+        "parent": {"database_id": NOTION_DATABASE_ID},
+        "properties": {
+            # This assumes your database's primary title column is named "Name"
+            "Name": {
+                "title": [
+                    {"text": {"content": f"Morning Briefing: {today_str}"}}
+                ]
+            }
+        },
+        "children": blocks
     }
     
     try:
-        response = requests.post(url, json=payload)
+        response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
-        print("Briefing delivered successfully!")
+        print("Briefing delivered to Notion successfully!")
     except Exception as e:
-        print(f"Failed to send to Telegram: {e}")
+        print(f"Failed to send to Notion: {e}")
+        if 'response' in locals():
+            print(f"Notion API Response: {response.text}")
 
+# Update your __main__ block to call the new function:
 if __name__ == "__main__":
     raw_weather = get_weather()
     raw_agenda = get_calendar_events()
     raw_news = get_news()
     
     final_briefing = generate_ai_briefing(raw_weather, raw_agenda, raw_news)
-    send_telegram_message(final_briefing)
+    create_notion_page(final_briefing)
