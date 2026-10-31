@@ -195,3 +195,11 @@ def create_notion_page(message):
         print(f"Failed to send to Notion: {e}")
         if 'response' in locals():
             print(f"Notion API Response: {response.text}")
+
+if __name__ == "__main__":
+    raw_weather = get_weather()
+    raw_agenda = get_calendar_events()
+    raw_news = get_news()
+    
+    final_briefing = generate_ai_briefing(raw_weather, raw_agenda, raw_news)
+    create_notion_page(final_briefing)
