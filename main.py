@@ -110,11 +110,12 @@ def generate_ai_briefing(weather, agenda, news):
     FORMATTING RULES FOR NOTION:
     1. Do NOT use any Markdown formatting (no asterisks **, no pound signs ###, no brackets).
     2. Do NOT use HTML tags. 
-    3. Use emojis as section headers (e.g., 🌤️ Weather, 📅 Agenda, 🌍 Top News).
-    4. For the news section, provide EXACTLY 2 items:
+    3. Use emojis as section headers (e.g., 🌤️ Weather, 📅 Agenda, 🌍 Top News, 💻 Tech News).
+    4. For the news section, provide EXACTLY 3 items:
        - The most important WORLD NEWS story.
+       - The second most important WORLD NEWS story.
        - The top TECH NEWS story.
-    5. Format each news item as: "Title - new line - 1 sentence summary."
+    5. Format each news item as: "Emoji, Title, new line, 1 sentence summary, URL, new line."
     6. Ensure every distinct point or paragraph is on a new line.
     """
     
