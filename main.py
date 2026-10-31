@@ -113,9 +113,8 @@ def generate_ai_briefing(weather, agenda, news):
     3. Use emojis as section headers (e.g., 🌤️ Weather, 📅 Agenda, 🌍 Top News).
     4. For the news section, provide EXACTLY 3 items:
        - The most important WORLD NEWS story.
-       - The second most important WORLD NEWS story.
        - The top TECH NEWS story.
-    5. Format each news item as: "Title - URL - 1 sentence summary."
+    5. Format each news item as: "Title \n 1 sentence summary."
     6. Ensure every distinct point or paragraph is on a new line.
     """
     
@@ -134,20 +133,35 @@ def generate_ai_briefing(weather, agenda, news):
 # ==========================================
 def create_notion_page(message):
     print("Sending to Notion...")
+    NOTION_DATABASE_ID = os.environ.get("NOTION_DATABASE_ID")
     if not NOTION_TOKEN or not NOTION_DATABASE_ID:
         print(message)
         return
 
-    url = "https://api.notion.com/v1/pages"
-    
     headers = {
         "Authorization": f"Bearer {NOTION_TOKEN}",
         "Content-Type": "application/json",
         "Notion-Version": "2026-03-11"
     }
 
-    # Split the AI output by newlines and create a paragraph block for each line
-    # This prevents hitting Notion's character limits for single blocks
+    # STEP 1: Query the database to find all existing briefings
+    query_url = f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID}/query"
+    try:
+        query_response = requests.post(query_url, headers=headers)
+        query_response.raise_for_status()
+        existing_pages = query_response.json().get("results", [])
+        
+        # STEP 2: Archive (delete) each existing page
+        for page in existing_pages:
+            archive_url = f"https://api.notion.com/v1/pages/{page['id']}"
+            requests.patch(archive_url, headers=headers, json={"archived": True})
+            
+    except Exception as e:
+        print(f"Failed to clear old database entries: {e}")
+
+    # STEP 3: Create the new daily briefing page
+    url = "https://api.notion.com/v1/pages"
+    
     blocks = []
     for line in message.split('\n'):
         if line.strip():
@@ -164,7 +178,6 @@ def create_notion_page(message):
     payload = {
         "parent": {"database_id": NOTION_DATABASE_ID},
         "properties": {
-            # This assumes your database's primary title column is named "Name"
             "Name": {
                 "title": [
                     {"text": {"content": f"Morning Briefing: {today_str}"}}
@@ -182,12 +195,3 @@ def create_notion_page(message):
         print(f"Failed to send to Notion: {e}")
         if 'response' in locals():
             print(f"Notion API Response: {response.text}")
-
-# Update your __main__ block to call the new function:
-if __name__ == "__main__":
-    raw_weather = get_weather()
-    raw_agenda = get_calendar_events()
-    raw_news = get_news()
-    
-    final_briefing = generate_ai_briefing(raw_weather, raw_agenda, raw_news)
-    create_notion_page(final_briefing)

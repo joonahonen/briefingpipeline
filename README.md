@@ -11,7 +11,7 @@ The pipeline:
 3. Reads world news from The Guardian's world RSS feed.
 4. Reads technology news from TechCrunch's RSS feed.
 5. Uses Google Gemini to select and summarize:
-   - The two most important world-news articles.
+   - The most important world-news article.
    - The top technology-news article.
 6. Sends the formatted briefing to a Telegram chat.
 
